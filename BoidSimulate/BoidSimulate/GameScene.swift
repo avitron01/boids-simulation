@@ -10,6 +10,7 @@ import GameplayKit
 
 class Boids: SKSpriteNode {
     let perceivedConstant: CGFloat = 60
+    let boidSpeed: CGFloat = 100
     
     func align(boids: [Boids]) -> CGVector {
         let perceivedRadius: CGFloat = perceivedConstant
@@ -32,9 +33,8 @@ class Boids: SKSpriteNode {
         
         let vectorLength: CGFloat = sqrt(steeringVelocity.dx*steeringVelocity.dx + steeringVelocity.dy*steeringVelocity.dy)
         var normalised: CGVector = (vectorLength > 0) ? (steeringVelocity / vectorLength) : .zero
-        let speed: CGFloat = 100
-        normalised.dx = normalised.dx * speed
-        normalised.dy = normalised.dy * speed
+        normalised.dx = normalised.dx * boidSpeed
+        normalised.dy = normalised.dy * boidSpeed
         
         return normalised
     }
@@ -60,9 +60,8 @@ class Boids: SKSpriteNode {
         
         let vectorLength: CGFloat = sqrt(cohesionPosition.dx*cohesionPosition.dx + cohesionPosition.dy*cohesionPosition.dy)
         var normalised: CGVector = (vectorLength > 0) ? (cohesionPosition / vectorLength) : .zero
-        let speed: CGFloat = 100
-        normalised.dx = normalised.dx * speed
-        normalised.dy = normalised.dy * speed
+        normalised.dx = normalised.dx * boidSpeed
+        normalised.dy = normalised.dy * boidSpeed
         
         return normalised
     }
@@ -89,9 +88,8 @@ class Boids: SKSpriteNode {
         
         let vectorLength: CGFloat = sqrt(separationVector.dx*separationVector.dx + separationVector.dy*separationVector.dy)
         var normalised: CGVector = (vectorLength > 0) ? (separationVector / vectorLength) : .zero
-        let speed: CGFloat = 100
-        normalised.dx = normalised.dx * speed
-        normalised.dy = normalised.dy * speed
+        normalised.dx = normalised.dx * boidSpeed
+        normalised.dy = normalised.dy * boidSpeed
         
         return normalised
     }
@@ -102,6 +100,10 @@ class Boids: SKSpriteNode {
         let cohesion = self.cohesion(boids: boids)
         let separation = self.separation(boids: boids)
         self.physicsBody!.velocity = self.physicsBody!.velocity + separation + cohesion + alignment
+        
+        if self.physicsBody!.velocity.dx == 0 && self.physicsBody!.velocity.dy == 0 {
+            self.physicsBody!.velocity = CGVector(dx: boidSpeed, dy: boidSpeed)
+        }
     }
     
     func edges(_ size: CGSize) {
@@ -153,12 +155,12 @@ class GameScene: SKScene {
         let image = NSImage(systemSymbolName: "location.north.fill", accessibilityDescription: nil)!
         let texture = SKTexture(image: image)
         
-        for _ in 0..<150 {
+        for _ in 0..<100 {
             let boid = Boids(texture: texture)
             boid.size = boidSize
             boid.position = CGPoint(x: CGFloat.random(in: 0...self.size.width), y: CGFloat.random(in: 0...self.size.height))
             boid.physicsBody = SKPhysicsBody(rectangleOf: boid.size)
-            boid.physicsBody?.velocity = CGVector(dx: CGFloat.random(in: -100...200), dy: CGFloat.random(in: 100...200))
+            boid.physicsBody?.velocity = .zero //CGVector(dx: CGFloat.random(in: -100...200), dy: CGFloat.random(in: 100...200))
             boid.physicsBody?.collisionBitMask = 0
             flocks.append(boid)
             addChild(boid)
