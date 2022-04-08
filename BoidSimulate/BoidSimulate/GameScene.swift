@@ -9,8 +9,10 @@ import SpriteKit
 import GameplayKit
 
 class Boids: SKSpriteNode {
+    let perceivedConstant: CGFloat = 60
+    
     func align(boids: [Boids]) -> CGVector {
-        let perceivedRadius: CGFloat = 50
+        let perceivedRadius: CGFloat = perceivedConstant
         var steeringVelocity: CGVector = .zero
         var total: CGFloat = 0
         let velocity = self.physicsBody!.velocity
@@ -22,7 +24,7 @@ class Boids: SKSpriteNode {
                 steeringVelocity = steeringVelocity + otherBoidVelocity
             }
         }
-        print("Total : \(total)")
+
         if (total > 0) {
             steeringVelocity = steeringVelocity / total
             steeringVelocity = steeringVelocity - velocity
@@ -30,50 +32,77 @@ class Boids: SKSpriteNode {
         
         let vectorLength: CGFloat = sqrt(steeringVelocity.dx*steeringVelocity.dx + steeringVelocity.dy*steeringVelocity.dy)
         var normalised: CGVector = (vectorLength > 0) ? (steeringVelocity / vectorLength) : .zero
-        let speed: CGFloat = 10
+        let speed: CGFloat = 100
         normalised.dx = normalised.dx * speed
         normalised.dy = normalised.dy * speed
         
-        return steeringVelocity
+        return normalised
     }
     
     func cohesion(boids: [Boids]) -> CGVector {
-        let perceivedRadius: CGFloat = 50
-        var steeringVelocity: CGVector = .zero
+        let perceivedRadius: CGFloat = perceivedConstant
+        var cohesionPosition: CGVector = .zero
         var total: CGFloat = 0
-        let velocity = CGVector(dx: self.position.x, dy: self.position.y)
+        let positionVector = CGVector(dx: self.position.x, dy: self.position.y)
         
         for other in boids {
             if other != self && other.position.distance(point: self.position) < perceivedRadius {
                 total += 1
-                let otherBoidVelocity = CGVector(dx: other.position.x, dy: other.position.y)
-                steeringVelocity = steeringVelocity + otherBoidVelocity
+                let otherBoidPosition = CGVector(dx: other.position.x, dy: other.position.y)
+                cohesionPosition = cohesionPosition + otherBoidPosition
             }
         }
-        print("Total : \(total)")
+
         if (total > 0) {
-            steeringVelocity = steeringVelocity / total
-            steeringVelocity = steeringVelocity - velocity
+            cohesionPosition = cohesionPosition / total
+            cohesionPosition = cohesionPosition - positionVector
         }
         
-        let vectorLength: CGFloat = sqrt(steeringVelocity.dx*steeringVelocity.dx + steeringVelocity.dy*steeringVelocity.dy)
-        var normalised: CGVector = (vectorLength > 0) ? (steeringVelocity / vectorLength) : .zero
-        let speed: CGFloat = 10
+        let vectorLength: CGFloat = sqrt(cohesionPosition.dx*cohesionPosition.dx + cohesionPosition.dy*cohesionPosition.dy)
+        var normalised: CGVector = (vectorLength > 0) ? (cohesionPosition / vectorLength) : .zero
+        let speed: CGFloat = 100
         normalised.dx = normalised.dx * speed
         normalised.dy = normalised.dy * speed
         
-        return steeringVelocity
+        return normalised
+    }
+    
+    func separation(boids: [Boids]) -> CGVector {
+        let perceivedRadius: CGFloat = perceivedConstant
+        var separationVector: CGVector = .zero
+        var total: CGFloat = 0
+        let positionVector = CGVector(dx: self.position.x, dy: self.position.y)
+        for other in boids {
+            let d = other.position.distance(point: self.position)
+            if other != self && d < perceivedRadius {
+                total += 1
+                let otherBoidPosition = CGVector(dx: other.position.x, dy: other.position.y)
+                let diff = positionVector - otherBoidPosition
+                let diffPerceived = diff / (d * d)
+                separationVector = separationVector + diffPerceived
+            }
+        }
+        
+        if (total > 0) {
+            separationVector = separationVector / total
+        }
+        
+        let vectorLength: CGFloat = sqrt(separationVector.dx*separationVector.dx + separationVector.dy*separationVector.dy)
+        var normalised: CGVector = (vectorLength > 0) ? (separationVector / vectorLength) : .zero
+        let speed: CGFloat = 100
+        normalised.dx = normalised.dx * speed
+        normalised.dy = normalised.dy * speed
+        
+        return normalised
     }
     
     func flock(boids: [Boids]) {
         self.physicsBody?.velocity = .zero
-        var alignment = self.align(boids: boids) //self.align(boids: boids)
-        var cohesion = self.cohesion(boids: boids)
-        
-        self.physicsBody!.velocity = self.physicsBody!.velocity + cohesion + alignment
+        let alignment = self.align(boids: boids)
+        let cohesion = self.cohesion(boids: boids)
+        let separation = self.separation(boids: boids)
+        self.physicsBody!.velocity = self.physicsBody!.velocity + separation + cohesion + alignment
     }
-    
-
     
     func edges(_ size: CGSize) {
         if (self.position.x < 0) {
@@ -120,19 +149,17 @@ class GameScene: SKScene {
     
     override func didMove(to view: SKView) {
         self.backgroundColor = .white
-        
-        
         let boidSize = CGSize(width: 20, height: 20)
-        let boidPosition = CGPoint(x: size.width / 2, y: size.height / 2)
         let image = NSImage(systemSymbolName: "location.north.fill", accessibilityDescription: nil)!
-        
         let texture = SKTexture(image: image)
-        for _ in 0..<100 {
+        
+        for _ in 0..<150 {
             let boid = Boids(texture: texture)
             boid.size = boidSize
             boid.position = CGPoint(x: CGFloat.random(in: 0...self.size.width), y: CGFloat.random(in: 0...self.size.height))
             boid.physicsBody = SKPhysicsBody(rectangleOf: boid.size)
             boid.physicsBody?.velocity = CGVector(dx: CGFloat.random(in: -100...200), dy: CGFloat.random(in: 100...200))
+            boid.physicsBody?.collisionBitMask = 0
             flocks.append(boid)
             addChild(boid)
         }
@@ -141,13 +168,7 @@ class GameScene: SKScene {
         physicsWorld.contactDelegate = self
     }
     
-    
-    
     func touchDown(atPoint pos : CGPoint) {
-//        for boid in flocks {
-//            let unitVector = CGVector(dx: 2, dy: 2)
-//            boid.physicsBody!.velocity = boid.physicsBody!.velocity + unitVector
-//        }
     }
     
     func touchMoved(toPoint pos : CGPoint) {
