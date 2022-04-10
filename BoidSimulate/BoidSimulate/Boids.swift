@@ -8,6 +8,45 @@
 import Foundation
 import SpriteKit
 
+class Grid {
+    var min: CGFloat = 0
+    var max: CGFloat = 0
+    var cellSize: CGFloat = 250
+    
+    lazy var width: CGFloat = {
+        return (max - min) / cellSize
+    }()
+    
+    lazy var numberOfBuckets: CGFloat = {
+        return self.width * self.width
+    }()
+    
+    var bucket: [Int: Set<Boids>] = [:]
+    
+    func addToBucket(_ boid: Boids) {
+        let gridCell = self.gridCell(for: boid.position)
+        if let _ = bucket[gridCell] {
+            bucket[gridCell]?.insert(boid)
+        } else {
+            bucket[gridCell] = [boid]
+        }
+    }
+    
+    lazy var conversionFactor: CGFloat = {
+       return 1 / cellSize
+    }()
+    
+    func gridCell(for point: CGPoint) -> Int {
+        let gridCell = Int((point.x * conversionFactor) + (point.y * conversionFactor) * width)
+        return gridCell
+    }
+    
+    func getBoidForPoint(for point: CGPoint) -> Set<Boids>? {
+        let gridIndex = gridCell(for: point)
+        return bucket[gridIndex]
+    }
+}
+
 class Boids: SKSpriteNode {
     let perceivedConstant: CGFloat = CGFloat(50 * 50)
     let boidSpeed: CGFloat = 100
@@ -34,96 +73,71 @@ class Boids: SKSpriteNode {
         return boids
     }
     
-    func align(boids: [Boids]) -> CGVector {
+    func flock(boids: [Boids], using grid: Grid) {
+        self.physicsBody?.velocity = .zero
+        self.physicsBody!.velocity = getFinalVelocity(boids: boids, grid: grid)
+        if self.physicsBody!.velocity.dx == 0 && self.physicsBody!.velocity.dy == 0 {
+            self.physicsBody!.velocity = CGVector(dx: boidSpeed, dy: boidSpeed)
+        }
+    }
+    
+    func getFinalVelocity(boids: [Boids], grid: Grid) -> CGVector {
         let perceivedRadius: CGFloat = perceivedConstant
-        var steeringVelocity: CGVector = .zero
-        var total: CGFloat = 0
-        let velocity = self.physicsBody!.velocity
+        var steeringVelocity: CGVector = .zero //Alignment
+        var cohesionPosition: CGVector = .zero //Cohesion
+        var separationVector: CGVector = .zero //Separation
         
-        for other in boids {
-            if other != self && other.position.distance(point: self.position) < perceivedRadius {
+        var total: CGFloat = 0
+        let selfVelocity = self.physicsBody!.velocity
+        let positionVector = CGVector(dx: self.position.x, dy: self.position.y)
+        
+        guard let boidsNearGrid = grid.getBoidForPoint(for: self.position) else {
+            return .zero
+        }
+        
+        for other in boidsNearGrid {
+            let distance = other.position.distance(point: self.position)
+            if other != self && distance < perceivedRadius {
                 total += 1
+                //Alignment
                 let otherBoidVelocity = other.physicsBody!.velocity
                 steeringVelocity = steeringVelocity + otherBoidVelocity
+                
+                //Cohesion
+                let otherBoidPosition = CGVector(dx: other.position.x, dy: other.position.y)
+                cohesionPosition = cohesionPosition + otherBoidPosition
+                
+                //Separation
+                let diff = positionVector - otherBoidPosition
+                let diffPerceived = diff / (sqrt(distance))
+                separationVector = separationVector + diffPerceived
             }
         }
 
         if (total > 0) {
             steeringVelocity = steeringVelocity / total
-            steeringVelocity = steeringVelocity - velocity
-        }
-        
-        
-        var normalised: CGVector = steeringVelocity.normalized
-        normalised.dx = normalised.dx * boidSpeed
-        normalised.dy = normalised.dy * boidSpeed
-        
-        return normalised
-    }
-    
-    func cohesion(boids: [Boids]) -> CGVector {
-        let perceivedRadius: CGFloat = perceivedConstant
-        var cohesionPosition: CGVector = .zero
-        var total: CGFloat = 0
-        let positionVector = CGVector(dx: self.position.x, dy: self.position.y)
-        
-        for other in boids {
-            if other != self && other.position.distance(point: self.position) < perceivedRadius {
-                total += 1
-                let otherBoidPosition = CGVector(dx: other.position.x, dy: other.position.y)
-                cohesionPosition = cohesionPosition + otherBoidPosition
-            }
-        }
-
-        if (total > 0) {
+            steeringVelocity = steeringVelocity - selfVelocity
+            
             cohesionPosition = cohesionPosition / total
             cohesionPosition = cohesionPosition - positionVector
-        }
-        
-        var normalised: CGVector = cohesionPosition.normalized
-        normalised.dx = normalised.dx * boidSpeed
-        normalised.dy = normalised.dy * boidSpeed
-        
-        return normalised
-    }
-    
-    func separation(boids: [Boids]) -> CGVector {
-        let perceivedRadius: CGFloat = perceivedConstant
-        var separationVector: CGVector = .zero
-        var total: CGFloat = 0
-        let positionVector = CGVector(dx: self.position.x, dy: self.position.y)
-        for other in boids {
-            let d = other.position.distance(point: self.position)
-            if other != self && d < perceivedRadius {
-                total += 1
-                let otherBoidPosition = CGVector(dx: other.position.x, dy: other.position.y)
-                let diff = positionVector - otherBoidPosition
-                let diffPerceived = diff / (sqrt(d))
-                separationVector = separationVector + diffPerceived
-            }
-        }
-        
-        if (total > 0) {
+            
             separationVector = separationVector / total
         }
-                        
-        var normalised: CGVector = separationVector.normalized
-        normalised.dx = normalised.dx * boidSpeed
-        normalised.dy = normalised.dy * boidSpeed
         
-        return normalised
-    }
-    
-    func flock(boids: [Boids]) {
-        self.physicsBody?.velocity = .zero
-        let alignment = self.align(boids: boids)
-        let cohesion = self.cohesion(boids: boids)
-        let separation = self.separation(boids: boids)
-        self.physicsBody!.velocity = separation + cohesion + alignment
-//        print("\(separation)  \(cohesion)  \(alignment)")
-        if self.physicsBody!.velocity.dx == 0 && self.physicsBody!.velocity.dy == 0 {
-            self.physicsBody!.velocity = CGVector(dx: boidSpeed, dy: boidSpeed)
-        }
+        
+        var normalisedSteering: CGVector = steeringVelocity.normalized
+        normalisedSteering.dx *= boidSpeed
+        normalisedSteering.dy *= boidSpeed
+        
+        var normalisedCohesion: CGVector = cohesionPosition.normalized
+        normalisedCohesion.dx *= boidSpeed
+        normalisedCohesion.dy *= boidSpeed
+        
+        var normalisedSeparation: CGVector = separationVector.normalized
+        normalisedSeparation.dx *= boidSpeed
+        normalisedSeparation.dy *= boidSpeed
+        
+        return normalisedSteering + normalisedCohesion + normalisedSeparation
     }
     
     func edges(_ size: CGSize) {

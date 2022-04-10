@@ -8,15 +8,14 @@
 import SpriteKit
 import GameplayKit
 
-
-
-
-
 class GameScene: SKScene {
     var flocks: [Boids] = []
+    var grid: Grid = Grid()
     
     override func didMove(to view: SKView) {
         self.backgroundColor = .white
+        self.grid.min = 0
+        self.grid.max = self.size.width
         self.setupBoids()
         self.configurePhysicsWorld()
     }
@@ -71,12 +70,12 @@ class GameScene: SKScene {
     
     override func update(_ currentTime: TimeInterval) {
         for boid in flocks {
-            
-            boid.flock(boids: flocks)
+            boid.flock(boids: flocks, using: grid)
             boid.edges(self.size)
             if let body = boid.physicsBody {
                 boid.zRotation = body.velocity.angle() - offset
             }
+            grid.addToBucket(boid)
         }
     }
     
