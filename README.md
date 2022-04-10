@@ -1,5 +1,5 @@
 # boids-simulation
-A simple flocking simulation project inspired from 'The coding train'. 
+A simple flocking simulation project inspired from ['Coding Challenge #124: Flocking Simulation'](https://www.youtube.com/watch?v=mhjuuHl6qHM). 
 
 ![boid_simulate](https://user-images.githubusercontent.com/24877003/162628744-7a88f08b-4bcb-4e82-8284-d433d7f3242c.gif)
 
