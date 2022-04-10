@@ -70,12 +70,12 @@ class GameScene: SKScene {
     
     override func update(_ currentTime: TimeInterval) {
         for boid in flocks {
+            grid.addToBucket(boid)
             boid.flock(boids: flocks, using: grid)
             boid.edges(self.size)
             if let body = boid.physicsBody {
                 boid.zRotation = body.velocity.angle() - offset
-            }
-            grid.addToBucket(boid)
+            }            
         }
     }
     
