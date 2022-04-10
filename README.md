@@ -6,7 +6,7 @@ A simple flocking simulation project inspired from ['Coding Challenge #124: Floc
 Implemented using SpriteKit & Xcode
 
 ## TODO:
-- Implement spactial subdivision rather the naive approach follwed currently.
+- Implement spatial subdivision rather the naive approach followed currently.
 - Maybe implement Quad tree to benchmark difference between spatial subdivision.
 - UI to change various paramter of flocking system
 - Obstacle avoidance system.
