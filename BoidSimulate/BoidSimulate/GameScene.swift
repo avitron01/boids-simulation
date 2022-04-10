@@ -32,6 +32,16 @@ class GameScene: SKScene {
     }
     
     func touchDown(atPoint pos : CGPoint) {
+        self.resetFlock()
+    }
+    
+    func resetFlock() {
+        for boid in flocks {
+            boid.physicsBody?.velocity = .zero
+            let xPos = CGFloat.random(in: 0...size.width)
+            let yPos = CGFloat.random(in: 0...size.height)
+            boid.position = CGPoint(x: xPos, y: yPos)
+        }
     }
     
     func touchMoved(toPoint pos : CGPoint) {
