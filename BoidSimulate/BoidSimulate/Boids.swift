@@ -54,8 +54,8 @@ class Grid {
 }
 
 class Boid: SKSpriteNode {
-    let perceivedConstant: CGFloat = CGFloat(60 * 60)
-    let boidSpeed: CGFloat = 100
+    let perceivedConstant: CGFloat = CGFloat(30 * 30)
+    let boidSpeed: CGFloat = 150
     var lineNodes: [Boid : SKShapeNode]? = [:]
     var enableNodeWireFrame: Bool = false
     var enableBucketCount: Bool = false
