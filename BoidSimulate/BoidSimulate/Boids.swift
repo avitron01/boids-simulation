@@ -11,15 +11,15 @@ import SpriteKit
 class Grid {
     var min: CGFloat = 0
     var max: CGFloat = 0
-    var cellSize: CGFloat = 300
+    var cellSize: CGFloat = 200
     
-    lazy var width: CGFloat = {
+    var width: CGFloat {
         return (max - min) / cellSize
-    }()
+    }
     
-    lazy var numberOfBuckets: CGFloat = {
+    var numberOfBuckets: CGFloat {
         return self.width * self.width
-    }()
+    }
     
     var bucket: [Int: Set<Boid>] = [:]
     
@@ -54,17 +54,18 @@ class Grid {
 }
 
 class Boid: SKSpriteNode {
-    let perceivedConstant: CGFloat = CGFloat(50 * 50)
+    let perceivedConstant: CGFloat = CGFloat(60 * 60)
     let boidSpeed: CGFloat = 100
     var lineNodes: [Boid : SKShapeNode]? = [:]
-    var enableNodeWireFrame: Bool = true
+    var enableNodeWireFrame: Bool = false
+    var enableBucketCount: Bool = false
     
     lazy var debugInfoNode: SKLabelNode = {
         let info = SKLabelNode(fontNamed: "Times-Roman")
         info.text = "No"
         info.fontSize = 20
         info.fontColor = SKColor.blue
-        self.parent?.addChild(info)
+        
         return info
     }()
     
@@ -118,8 +119,7 @@ class Boid: SKSpriteNode {
         for other in boidsNearGrid {
             if other != self {
                 let distance = other.position.distance(point: self.position)
-//                debugInfoNode.text = "\(boidsNearGrid.count)"
-//                debugInfoNode.position = self.position
+                self.setupDebugInfoNodes(with: boidsNearGrid.count)
                 if distance < perceivedRadius {
                     total += 1
                     //Alignment
@@ -151,7 +151,6 @@ class Boid: SKSpriteNode {
             separationVector = separationVector / total
         }
         
-        
         var normalisedSteering: CGVector = steeringVelocity.normalized
         normalisedSteering.dx *= boidSpeed
         normalisedSteering.dy *= boidSpeed
@@ -167,6 +166,21 @@ class Boid: SKSpriteNode {
         return normalisedSteering + normalisedCohesion + normalisedSeparation
     }
         
+    func setupDebugInfoNodes(with bucketCount: Int) {
+        if enableBucketCount {
+            debugInfoNode.text = "\(bucketCount)"
+            debugInfoNode.position = self.position
+            
+            if debugInfoNode.parent == nil {
+                self.parent?.addChild(debugInfoNode)
+            }
+        } else {
+            if debugInfoNode.parent != nil {
+                debugInfoNode.removeFromParent()
+            }
+        }
+    }
+    
     func resetWireFrame() {
         guard let linesNodes = lineNodes else {
             return

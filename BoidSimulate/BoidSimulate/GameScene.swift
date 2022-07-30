@@ -12,22 +12,30 @@ class GameScene: SKScene {
     var flocks: [Boid] = []
     var grid: Grid = Grid()
     var enableWireFrame: Bool = false
+    var enableBucketCounts: Bool = false
+    var totalBoids: Int = 200 {
+        didSet {
+            setupBoids(total: totalBoids)
+        }
+    }
     
     override func didMove(to view: SKView) {
         self.backgroundColor = .white
-        self.grid.min = 0
-        self.grid.max = self.size.width
-        self.setupBoids()
+        self.totalBoids = 200
         self.configurePhysicsWorld()
-        self.addInstructionNodes()
+        
     }
     
     func addInstructionNodes() {
         var heightOffset: CGFloat = 0
-        let messages = ["Press W - Toggle Wireframes",
+        let messages = ["Total Boids in system: - \(self.totalBoids)",
+                        "Press W - Toggle Wireframes",
                         "Press R - Reset Flocking",
-                        "Press P - Pause Flocking"]
-        for message in messages {
+                        "Press P - Pause Flocking",
+                        "Press B - Bucket counts",
+                        "Press '+' - Add 100 Boids",
+                        "Press '-' - Remove 100 Boids",]
+        for message in messages.reversed() {
             let info = SKLabelNode(fontNamed: "Times-Roman")
             info.text = message
             info.fontSize = 15
@@ -38,9 +46,11 @@ class GameScene: SKScene {
         }
     }
     
-    func setupBoids() {
+    func setupBoids(total: Int) {
+        self.removeAllChildren()
+        self.addInstructionNodes()
         let boidSize = CGSize(width: 20, height: 20)
-        self.flocks = Boid.generateBoids(count: 150, size: boidSize, parentNode: self, sceneSize: self.size)
+        self.flocks = Boid.generateBoids(count: total, size: boidSize, parentNode: self, sceneSize: self.size)
         self.grid.addToBucket(boids: self.flocks)
     }
     
@@ -89,22 +99,37 @@ class GameScene: SKScene {
             self.isPaused.toggle()
         } else if event.characters == "r" {
             self.resetFlock()
+        } else if event.characters == "b" {
+            self.enableBucketCounts.toggle()
+        } else if event.characters == "+" || event.characters == "=" {
+            self.totalBoids += 100
+        } else if event.characters == "-"{
+            self.totalBoids -= 100
+            self.totalBoids = max(self.totalBoids, 100)
         }
     }
     
     let offset = CGFloat(Double.pi/2)
     
     override func update(_ currentTime: TimeInterval) {
-        self.grid.bucket = [:]
-        self.grid.addToBucket(boids: flocks)
+        self.updateGrid()
         for boid in flocks {
             boid.enableNodeWireFrame = self.enableWireFrame
+            boid.enableBucketCount = self.enableBucketCounts
             boid.flock(boids: flocks, using: grid)
             boid.edges(self.size)
             if let body = boid.physicsBody {
                 boid.zRotation = body.velocity.angle() - offset
             }
         }
+    }
+    
+    func updateGrid() {
+        self.grid.min = 0
+        self.grid.max = self.size.width
+        self.grid.cellSize = self.size.width * 0.50
+        self.grid.bucket = [:]
+        self.grid.addToBucket(boids: flocks)
     }
     
 
