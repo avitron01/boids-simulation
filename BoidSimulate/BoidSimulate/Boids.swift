@@ -72,7 +72,7 @@ class Boid: SKSpriteNode {
     static func generateBoids(count: Int, size: CGSize, parentNode: SKNode, sceneSize: CGSize) -> [Boid] {
         var boids: [Boid] = []
         let boidSize = size
-        let image = NSImage(systemSymbolName: "location.north.fill", accessibilityDescription: nil)!
+        let image = NSImage(systemSymbolName: "location.north.line.fill", accessibilityDescription: nil)!
         let texture = SKTexture(image: image)
         
         for _ in 0..<count {
