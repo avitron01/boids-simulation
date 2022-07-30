@@ -11,7 +11,7 @@ import SpriteKit
 class Grid {
     var min: CGFloat = 0
     var max: CGFloat = 0
-    var cellSize: CGFloat = 250
+    var cellSize: CGFloat = 300
     
     lazy var width: CGFloat = {
         return (max - min) / cellSize
@@ -21,9 +21,15 @@ class Grid {
         return self.width * self.width
     }()
     
-    var bucket: [Int: Set<Boids>] = [:]
+    var bucket: [Int: Set<Boid>] = [:]
     
-    func addToBucket(_ boid: Boids) {
+    func addToBucket(boids: [Boid]) {
+        for boid in boids {
+            addToBucket(boid)
+        }
+    }
+    
+    func addToBucket(_ boid: Boid) {
         let gridCell = self.gridCell(for: boid.position)
         if let _ = bucket[gridCell] {
             bucket[gridCell]?.insert(boid)
@@ -41,24 +47,35 @@ class Grid {
         return gridCell
     }
     
-    func getBoidForPoint(for point: CGPoint) -> Set<Boids>? {
+    func getBoidForPoint(for point: CGPoint) -> Set<Boid>? {
         let gridIndex = gridCell(for: point)
         return bucket[gridIndex]
     }
 }
 
-class Boids: SKSpriteNode {
+class Boid: SKSpriteNode {
     let perceivedConstant: CGFloat = CGFloat(50 * 50)
     let boidSpeed: CGFloat = 100
+    var lineNodes: [Boid : SKShapeNode]? = [:]
+    var enableNodeWireFrame: Bool = true
     
-    static func generateBoids(count: Int, size: CGSize, parentNode: SKNode, sceneSize: CGSize) -> [Boids] {
-        var boids: [Boids] = []
+    lazy var debugInfoNode: SKLabelNode = {
+        let info = SKLabelNode(fontNamed: "Times-Roman")
+        info.text = "No"
+        info.fontSize = 20
+        info.fontColor = SKColor.blue
+        self.parent?.addChild(info)
+        return info
+    }()
+    
+    static func generateBoids(count: Int, size: CGSize, parentNode: SKNode, sceneSize: CGSize) -> [Boid] {
+        var boids: [Boid] = []
         let boidSize = size
         let image = NSImage(systemSymbolName: "location.north.fill", accessibilityDescription: nil)!
         let texture = SKTexture(image: image)
         
         for _ in 0..<count {
-            let boid = Boids(texture: texture)
+            let boid = Boid(texture: texture)
             boid.size = boidSize
             let xPos = CGFloat.random(in: 0...sceneSize.width)
             let yPos = CGFloat.random(in: 0...sceneSize.height)
@@ -73,15 +90,16 @@ class Boids: SKSpriteNode {
         return boids
     }
     
-    func flock(boids: [Boids], using grid: Grid) {
+    func flock(boids: [Boid], using grid: Grid) {
         self.physicsBody?.velocity = .zero
         self.physicsBody!.velocity = getFinalVelocity(boids: boids, grid: grid)
         if self.physicsBody!.velocity.dx == 0 && self.physicsBody!.velocity.dy == 0 {
-            self.physicsBody!.velocity = CGVector(dx: boidSpeed, dy: boidSpeed)
+            let finalVelocity = CGVector(dx: boidSpeed, dy: boidSpeed)
+            self.physicsBody!.velocity = finalVelocity
         }
     }
     
-    func getFinalVelocity(boids: [Boids], grid: Grid) -> CGVector {
+    func getFinalVelocity(boids: [Boid], grid: Grid) -> CGVector {
         let perceivedRadius: CGFloat = perceivedConstant
         var steeringVelocity: CGVector = .zero //Alignment
         var cohesionPosition: CGVector = .zero //Cohesion
@@ -95,22 +113,31 @@ class Boids: SKSpriteNode {
             return .zero
         }
         
+        self.resetWireFrame()
+        
         for other in boidsNearGrid {
-            let distance = other.position.distance(point: self.position)
-            if other != self && distance < perceivedRadius {
-                total += 1
-                //Alignment
-                let otherBoidVelocity = other.physicsBody!.velocity
-                steeringVelocity = steeringVelocity + otherBoidVelocity
-                
-                //Cohesion
-                let otherBoidPosition = CGVector(dx: other.position.x, dy: other.position.y)
-                cohesionPosition = cohesionPosition + otherBoidPosition
-                
-                //Separation
-                let diff = positionVector - otherBoidPosition
-                let diffPerceived = diff / (sqrt(distance))
-                separationVector = separationVector + diffPerceived
+            if other != self {
+                let distance = other.position.distance(point: self.position)
+//                debugInfoNode.text = "\(boidsNearGrid.count)"
+//                debugInfoNode.position = self.position
+                if distance < perceivedRadius {
+                    total += 1
+                    //Alignment
+                    let otherBoidVelocity = other.physicsBody!.velocity
+                    steeringVelocity = steeringVelocity + otherBoidVelocity
+                    
+                    //Cohesion
+                    let otherBoidPosition = CGVector(dx: other.position.x, dy: other.position.y)
+                    cohesionPosition = cohesionPosition + otherBoidPosition
+                    
+                    //Separation
+                    let diff = positionVector - otherBoidPosition
+                    let diffPerceived = diff / (sqrt(distance))
+                    separationVector = separationVector + diffPerceived
+                    if enableNodeWireFrame {
+                        self.updateLine(from: self, to: other)
+                    }
+                }
             }
         }
 
@@ -139,6 +166,50 @@ class Boids: SKSpriteNode {
         
         return normalisedSteering + normalisedCohesion + normalisedSeparation
     }
+        
+    func resetWireFrame() {
+        guard let linesNodes = lineNodes else {
+            return
+        }
+        
+        linesNodes.values.forEach { $0.removeFromParent() }
+        self.lineNodes = [:]
+    }
+    
+    func updateLine(from first: Boid, to second: Boid) {
+        if let _ = first.lineNodes?[second] {
+            //Update path
+            first.lineNodes?[second]?.path = getLinePath(for: first.position, to: second.position)
+        } else {
+            //Add new Shape
+            self.addLine(from: first, to: second)
+        }
+    }
+    
+    func addLine(from first: Boid, to second: Boid) {
+        let lineNode = self.getLineShape(for: first.position, to: second.position)
+        first.lineNodes?[second] = lineNode
+        self.parent?.addChild(lineNode)
+    }
+    
+    func getLineShape(for start: CGPoint, to end: CGPoint) -> SKShapeNode {
+        let path = CGMutablePath()
+        path.move(to: start)
+        path.addLine(to: end)
+        
+        let shape = SKShapeNode()
+        shape.path = path
+        shape.strokeColor = NSColor.blue
+        shape.lineWidth = 2
+        return shape
+    }
+
+    func getLinePath(for start: CGPoint, to end: CGPoint) -> CGMutablePath {
+        let path = CGMutablePath()
+        path.move(to: start)
+        path.addLine(to: end)
+        return path
+    }
     
     func edges(_ size: CGSize) {
         if (self.position.x < 0) {
@@ -154,3 +225,4 @@ class Boids: SKSpriteNode {
         }
     }
 }
+

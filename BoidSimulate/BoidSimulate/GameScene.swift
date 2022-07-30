@@ -9,8 +9,9 @@ import SpriteKit
 import GameplayKit
 
 class GameScene: SKScene {
-    var flocks: [Boids] = []
+    var flocks: [Boid] = []
     var grid: Grid = Grid()
+    var enableWireFrame: Bool = false
     
     override func didMove(to view: SKView) {
         self.backgroundColor = .white
@@ -18,11 +19,29 @@ class GameScene: SKScene {
         self.grid.max = self.size.width
         self.setupBoids()
         self.configurePhysicsWorld()
+        self.addInstructionNodes()
+    }
+    
+    func addInstructionNodes() {
+        var heightOffset: CGFloat = 0
+        let messages = ["Press W - Toggle Wireframes",
+                        "Press R - Reset Flocking",
+                        "Press P - Pause Flocking"]
+        for message in messages {
+            let info = SKLabelNode(fontNamed: "Times-Roman")
+            info.text = message
+            info.fontSize = 15
+            info.fontColor = SKColor.blue
+            self.addChild(info)
+            info.position = CGPoint(x: self.frame.origin.x + (info.frame.width / 2), y: 10 + heightOffset)
+            heightOffset += info.frame.height
+        }
     }
     
     func setupBoids() {
         let boidSize = CGSize(width: 20, height: 20)
-        self.flocks = Boids.generateBoids(count: 100, size: boidSize, parentNode: self, sceneSize: self.size)
+        self.flocks = Boid.generateBoids(count: 150, size: boidSize, parentNode: self, sceneSize: self.size)
+        self.grid.addToBucket(boids: self.flocks)
     }
     
     func configurePhysicsWorld() {
@@ -31,7 +50,7 @@ class GameScene: SKScene {
     }
     
     func touchDown(atPoint pos : CGPoint) {
-        self.resetFlock()
+        
     }
     
     func resetFlock() {
@@ -64,18 +83,27 @@ class GameScene: SKScene {
     }
     
     override func keyDown(with event: NSEvent) {
-
+        if event.characters == "w" {
+            self.enableWireFrame.toggle()
+        } else if event.characters == "p" {
+            self.isPaused.toggle()
+        } else if event.characters == "r" {
+            self.resetFlock()
+        }
     }
+    
     let offset = CGFloat(Double.pi/2)
     
     override func update(_ currentTime: TimeInterval) {
+        self.grid.bucket = [:]
+        self.grid.addToBucket(boids: flocks)
         for boid in flocks {
-            grid.addToBucket(boid)
+            boid.enableNodeWireFrame = self.enableWireFrame
             boid.flock(boids: flocks, using: grid)
             boid.edges(self.size)
             if let body = boid.physicsBody {
                 boid.zRotation = body.velocity.angle() - offset
-            }            
+            }
         }
     }
     
