@@ -8,7 +8,7 @@ Implemented using SpriteKit & Xcode
 ## TODO:
 - ~Implement spatial subdivision rather the naive approach followed currently.~ (Done ✅)
 - Maybe implement Quad tree to benchmark difference between spatial subdivision.
-- UI to change various paramter of flocking system
+- ~UI to change various paramter of flocking system~ (Done ✅)
 - Obstacle avoidance system.
 
 ## References:
